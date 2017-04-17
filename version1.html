@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title></title>
+</head>
+<body onload="init()">
+<canvas id="canvas" width="900" height="400"></canvas>
+<br/>
+Press mouse button down, drag and release to make a wall.
+Use arrow keys to move token. <br/>
+Pressing any other key will stop key capture and allow you to save the maze locally.
+<form name="sf" onSubmit="return savewalls()" >
+    To save your maze, enter in a name and click on the SAVE WALLS button. <br/>
+    Name: <input name="slname" value="maze_name" type="text">
+    <input type="submit" value="SAVE WALLS"/>
+</form>
+<form name="gf" onSubmit="return getwalls()" >
+    To add old walls, enter in the name and click on the GET SAVED WALLS button. <br/>
+    Name: <input name="glname" value="maze_name" type="text">
+    <input type="submit" value="GET SAVED WALLS"/>
+</form>
+
+
+<script type="text/javascript">
+    var cwidth=900;
+    var cheight=350;
+    var ctx;
+    var everything=[];
+    var curwall;//对应当前的墙
+    var wallstyle ="rgb(30,6,6)";//墙的颜色
+    var wallwidth = 4;//墙宽
+    var walls=[];//保留所有的墙
+    var inmotion = false;//标志，指示正在通过拖动鼠标构建墙
+    var unit =10;//token移动单位
+    function Token(sx,sy,rad,stylestring,n){
+        this.sx=sx;
+        this.sy=sy;
+        this.rad=rad;//半径
+        this.fillstyle=stylestring;
+        this.n=n;
+        this.angle=(2*Math.PI)/n;//角度
+        this.draw=drawtoken;
+        this.moveit=movetoken;
+    }
+
+function drawtoken(){
+    ctx.fillStyle=this.fillstyle;
+    var rad=this.rad;
+    ctx.beginPath();//画一个五边形
+    ctx.moveTo(this.sx+rad*Math.cos(-.5*this.angle),this.sy+rad*Math.sin(-.5*this.angle));
+    for(var i=1;i<this.n;i++){
+        ctx.lineTo(this.sx+rad*Math.cos((i -.5)*this.angle),this.sy+rad*Math.sin((i -.5)*this.angle));
+
+    }
+    ctx.fill();
+}
+    function movetoken(dx,dy){
+        this.sx +=dx;
+        this.sy +=dy;
+        var wall;//索引
+        for (var j=0;j<walls.length;j++ ){//循环处理所有墙
+            wall=walls[j];
+            if(intersect(wall.sx,wall.sy,wall.fx,wall.fy,this.sx,this.sy,this.rad)){//检查是否相交,如果相交，执行
+                this.sx -= dx;//改回x,不做这次移动
+                this.sy -=dy;//改回y,不做这次移动
+                break;
+            }
+
+        }
+
+    }
+
+    function Wall(sx,sy,fx,fy,width,stylestring){//开始画墙，起点坐标，终点坐标，宽度
+        this.sx=sx;
+        this.sy=sy;
+        this.fx=fx;
+        this.fy=fy;
+        this.width= width;
+        this.draw= drawAline;
+        this.strokestyle = stylestring;
+
+    }
+
+    function drawAline(){
+        ctx.lineWidth = this.width;
+        ctx.strokeStyle= this.strokestyle;
+        ctx.beginPath();
+        ctx.moveTo(this.sx,this.sy);//移动到线的起点
+        ctx.lineTo(this.fx,this.fy);//终点
+        ctx.stroke();//画线
+
+    }
+
+    var mypent = new Token(100,100,20,"rgb(0,0,250)",5);//生成多边形
+    everything.push(mypent);//放入数组
+    function init(){
+        ctx = document.getElementById('canvas').getContext('2d');
+        canvas1 = document.getElementById('canvas');
+        canvas1.addEventListener('mousedown',startwall,false);
+        canvas1.addEventListener('mousemove',stretchwall,false);
+        canvas1.addEventListener('mouseup',finish,false);
+        window.addEventListener('keydown',getKeyAndMove,false);
+        drawall();
+
+    }
+
+    function startwall(ev){
+        var mx;
+        var my;
+        if (ev.layerX || ev.layerX == 0) {//相对当前坐标系的border左上角开始的坐标,
+            mx = ev.layerX;
+            my = ev.layerY;
+        }
+        else if (ev.offsetX || ev.offsetX == 0) {//相对当前坐标系的border左上角开始的坐标
+            mx = ev.offsetX;
+            my = ev.offsetY;
+        }
+        curwall = new Wall(mx,my,mx+1,my+1,wallwidth,wallstyle);//创建当前的墙。此时很小
+        inmotion = true;
+        everything.push(curwall);
+        drawall();
+
+    }
+
+    function stretchwall(ev){
+    if ( inmotion ){
+        var mx;
+        var my;
+        if (ev.layerX || ev.layerX == 0) {//相对当前坐标系的border左上角开始的坐标,
+            mx = ev.layerX;
+            my = ev.layerY;
+        }
+        else if (ev.offsetX || ev.offsetX == 0) {//相对当前坐标系的border左上角开始的坐标
+            mx = ev.offsetX;
+            my = ev.offsetY;
+        }
+
+        curwall.fx = mx;
+        curwall.fy = my;
+        drawall();
+
+    }
+ }
+    function finish(ev){
+        inmotion = false;//完成构墙
+        walls.push(curwall);//将curwall增加到walls
+    }
+
+    function drawall(){
+        ctx.clearRect(0,0,cwidth,cheight);//擦除画布
+        for (var i=0;i<everything.length;i++){//绘制所有的对
+            everything[i].draw();
+        }
+
+    }
+    function getKeyAndMove(event){
+        var keyCode;
+        if (event == null){//针对不同浏览器，得到按下按键的信息
+            keyCode = window.event.keyCode;
+            window.event.preventDefault();//停止默认动作
+        }
+        else {
+            keyCode = event.keyCode;
+            event.preventDefault();
+        }
+        switch (keyCode){
+            case 37:
+                mypent.moveit(-unit,0);//左箭头
+                break;
+            case 38:
+                mypent.moveit(0,-unit);//上箭头
+                break;
+            case 39:
+                mypent.moveit(unit,0);//右箭头
+                break;
+            case 40:
+                mypent.moveit(0,unit);//下箭头
+                break;
+            default :
+                window.removeEventListener('keydown',getKeyAndMove,false);//停止监听按键。假设玩家想要保存到本地存储
+
+        }
+        drawall();
+
+    }
+
+    function intersect(sx,sy,fx,fy,cx,cy,rad){
+        var dx;//中间值
+        var dy;//中间值
+        var t;//表达式的t
+        var rt;//保存距离的平方
+        dx = fx-sx;//设置x之差
+        dy = fy-sy;//设置yzhicah
+        t=0.0-((sx-cx)*dx+(sy-cy)*dy)/((dx*dx)+(dy*dy));//取从各点到（cx，cy）距离的平方，取导数
+        if (t<0.0){
+            t=0.0;
+        }
+        else if(t>1.0){
+            t = 1.0;
+        }
+        dx = (sx+t*(fx-sx))-cx;//计算此t值的差
+        dy = (sy+t*(fy-sy))-cy;//计算此t值的差
+        rt =(dx*dx)+(dy*dy);
+
+        if ( rt<(rad*rad) ){
+            return true;
+        }else {
+            return false;
+        }
+    }
+
+    function savewalls(){
+        var w=[];//临时数组
+        var allw=[];//临时数组
+        var sw;//保存最终的字符串
+        var onewall;//
+        var lsname = document.sf.slname.value;//去玩家指定的名字，完成本地存储
+        for (var i=0;i<walls.length;i++){
+            w.push(walls[i].sx);
+            w.push(walls[i].sy);
+            w.push(walls[i].fx);
+            w.push(walls[i].fy);//分别将sx,sy,fx,fy加入到w数组
+            onewall = w.join("+");//建立一个字符串
+            allw.push(onewall);//增加到allw数组
+            w=[];//重置w为空数组
+        }
+        sw = allw.join(";");//将allw转换为一个字符串
+        try{
+            localStorage.setItem(lsname,sw);//保存呢localStortage
+
+        }
+        catch(e){
+            alert("data not save"+e);
+
+        }
+        return false;
+
+    }
+
+    function getwalls(){
+        var swalls;//临时存储
+        var sw;//临时存储
+        var sx;
+        var sy;
+        var fx;
+        var fy;
+        var curwall;//保存所创建的墙
+        var lsname = document.gf.glname.value;//抽取玩家存储的名字，以备获取
+        swalls=localStorage.getItem(lsname);//获取指定key本地存储的值
+        if (swalls!=null) {
+            wallstgs = swalls.split(";");//split() 方法用于把一个字符串分割成字符串数组
+            for(var i=0;i<wallstgs.length;i++){
+                sw =wallstgs[i].split("+");
+                sx =Number(sw[0]);
+                sy =Number(sw[1]);
+                fx =Number(sw[2]);
+                fy= Number(sw[3]);
+                curwall =new Wall(sx,sy,fx,fy,wallwidth,wallstyle);//用提取的值和固定的值创造新的Wall
+                walls.push(curwall);
+                everything.push(curwall);
+            }
+            drawall();
+
+        }else{
+            alert("没有数据");
+
+        }
+     window.addEventListener('keydown',getKeyAndMove,false);//设置keydown动作
+        return false;
+    }
+
+
+</script>
+
+</body>
+</html>
