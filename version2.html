@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title></title>
+    <script type="text/javascript">
+        var cwidth=900;
+        var cheight=350;
+        var ctx;
+        var everything=[];
+        var curwall;
+        var widthwidth = 5;
+        var unit=10;
+        var wallstyle ="rgb(30,6,6)";//墙的颜色
+        var inmotion = false;//标志，指示正在通过拖动鼠标构建墙
+        var walls=[];//保留所有的墙
+
+
+
+        function Token(sx,sy,rad,stylestring,n){
+            this.sx=sx;
+            this.sy=sy;
+            this.rad=rad;//半径
+            this.fillstyle=stylestring;
+            this.n=n;
+            this.angle=(2*Math.PI)/n;//角度
+            this.draw=drawtoken;
+            this.moveit=movetoken;
+        }
+         function drawtoken(){
+             ctx.fillStyle=this.fillstyle;
+             var rad=this.rad;
+             ctx.beginPath();//画一个五边形
+             ctx.moveTo(this.sx+rad*Math.cos(-.5*this.angle),this.sy+rad*Math.sin(-.5*this.angle));
+             for(var i=1;i<this.n;i++){
+                 ctx.lineTo(this.sx+rad*Math.cos((i -.5)*this.angle),this.sy+rad*Math.sin((i -.5)*this.angle));
+
+             }
+             ctx.fill();//对内部空间着色
+
+
+         }
+        function movetoken(dx,dy){
+            this.sx +=dx;
+            this.sy +=dy;
+            var wall;//索引
+            for (var j=0;j<walls.length;j++ ) {//循环处理所有墙
+                wall = walls[j];
+                if (intersect(wall.sx, wall.sy, wall.fx, wall.fy, this.sx, this.sy, this.rad)) {//检查是否相交,如果相交，执行
+                    this.sx -= dx;//改回x,不做这次移动
+                    this.sy -= dy;//改回y,不做这次移动
+                    break;
+                }
+            }
+
+        }
+
+        function intersect(sx,sy,fx,fy,cx,cy,rad){
+            var dx;//中间值
+            var dy;//中间值
+            var t;//表达式的t
+            var rt;//保存距离的平方
+            dx = fx-sx;//设置x之差
+            dy = fy-sy;//设置yzhicah
+            t=0.0-((sx-cx)*dx+(sy-cy)*dy)/((dx*dx)+(dy*dy));//取从各点到（cx，cy）距离的平方，取导数
+            if (t<0.0){
+                t=0.0;
+            }
+            else if(t>1.0){
+                t = 1.0;
+            }
+            dx = (sx+t*(fx-sx))-cx;//计算此t值的差
+            dy = (sy+t*(fy-sy))-cy;//计算此t值的差
+            rt =(dx*dx)+(dy*dy);
+
+            if ( rt<(rad*rad) ){
+                return true;
+            }else {
+                return false;
+            }
+        }
+
+
+        function Wall(sx,sy,fx,fy,width,stylestring){//建立墙对象
+            this.sx=sx;
+            this.sy=sy;
+            this.fx=fx;
+            this.fy=fy;
+            this.width= width;
+            this.draw= drawAline;
+            this.strokestyle = stylestring;
+
+        }
+        function drawAline(){
+            ctx.lineWidth = this.width;
+            ctx.strokeStyle = this.strokestyle;
+            ctx.beginPath();
+            ctx.moveTo(this.sx,this.sy);//移动到线的起点
+            ctx.lineTo(this.fx,this.fy);//终点
+            ctx.stroke();//对线着色
+
+        }
+
+        var mypent = new Token(100,100,20,"rgb(0,0,250)",5);//我的围栏
+        everything.push(mypent);//放入数组
+        function init(){
+            ctx = document.getElementById('canvas').getContext('2d');
+            window.addEventListener('keydown',getKeyAndMove,false);
+            drawall();
+
+        }
+        function drawall(){
+            ctx.clearRect(0,0,cwidth,cheight);
+            for (var i=0;i<everything.length;i++){//绘制所有的对
+                everything[i].draw();
+            }
+        }
+
+        function getKeyAndMove(event){
+            var keyCode;
+            if (event == null){//针对不同浏览器，得到按下按键的信息
+                keyCode = window.event.keyCode;
+                window.event.preventDefault();//停止默认动作
+            }
+            else {
+                keyCode = event.keyCode;
+                event.preventDefault();
+            }
+            switch (keyCode){
+                case 37:
+                    mypent.moveit(-unit,0);//左箭头
+                    break;
+                case 38:
+                    mypent.moveit(0,-unit);//上箭头
+                    break;
+                case 39:
+                    mypent.moveit(unit,0);//右箭头
+                    break;
+                case 40:
+                    mypent.moveit(0,unit);//下箭头
+                    break;
+                default :
+                    window.removeEventListener('keydown',getKeyAndMove,false);//停止监听按键。假设玩家想要保存到本地存储
+
+            }
+            drawall();
+
+        }
+
+        function getwalls(){
+            var swalls;
+            var sw;
+            var sx;
+            var sy;
+            var fx;
+            var fy;
+            var curwall;
+            var lsname;
+            for(var i=0;i<document.gf.level.length;i++){
+                if (document.gf.level[i].checked){
+                    lsname=document.gf.level[i].value;
+                    break;
+                }
+            }
+
+            swalls=localStorage.getItem(lsname);
+            if (swalls !=null){
+                wallstgs =swalls.split(";");
+                walls =[];
+                everything =[];
+                everything.push(mypent);
+                for(var j=0;i<wallstgs.length;j++){
+                    sw = wallstgs[j].split("+");
+                    sx=Number(sw[0]);
+                    sy=Number(sw[1]);
+                    fx=Number(sw[2]);
+                    fy=Number(sw[3]);
+                    curwall = new Wall(sx,sy,fx,fy,wallwidth,wallstyle);
+                    everything.push(curwall);
+
+                }
+
+                drawall();
+            }else{
+                alert("no data");
+            }
+
+            window.addEventListener('keydown',getKeyAndMove,false);
+            return false;
+
+
+        }
+
+
+
+
+
+
+
+
+    </script>
+</head>
+<body onload="init()">
+<canvas id="canvas" width="900" height="350"></canvas>
+
+<form name="gf" onsubmit="return getwalls()">
+    <input type="radio" value="hard" name="level">Hard<br/>
+    <input type="radio" value="middle" name="level">middle<br/>
+    <input type="radio" value="easy" name="easy">easy<br/>
+    <input type="submit" value="get maze" /><br/>
+
+</form>
+
+<p>
+    使用方向键操作五边形
+</p>
+
+
+</body>
+</html>
